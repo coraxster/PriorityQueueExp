@@ -19,16 +19,21 @@ func main()  {
 	fmt.Println("Start!")
 	InChs := make([]chan interface{}, 0)
 	for priority := 0; priority <= 10 ; priority++  {
-		InChs = append(InChs, make(chan interface{}))
+		InChs = append(InChs, make(chan interface{}, 5))
 	}
 
-	chan2out, _ := PriorityQueue.Prioritize(InChs...)
+	//chan2out, _ := SimplePrioritizeChans(InChs...) // pretty simple but blocks in-channels
+	chan2out, _ := PriorityQueue.Prioritize(InChs...) // doesn't block in-channels
+
 	work(chan2out)
 
 	for priority := 10; priority > 0 ; priority--  {
-		for i:=1; i<100; i++ {
-			InChs[priority] <- "hi - pr:" + strconv.Itoa(priority) + " (" + strconv.Itoa(i) + ")"
-		}
+		go func(priority int){
+			for i:=1; i<100; i++ {
+				InChs[priority] <- "hi - pr:" + strconv.Itoa(priority) + " (" + strconv.Itoa(i) + ")"
+			}
+		}(priority)
+
 	}
 
 
@@ -56,4 +61,22 @@ func work(ch chan interface{}){
 			}
 		}(i)
 	}
+}
+
+func SimplePrioritizeChans(ins... chan interface{}) (chan interface{}, error) {
+	out := make(chan interface{})
+	go func() {
+		for {
+		switcher: for _, ch := range ins {
+			select {
+			case item := <- ch:
+				out <- item
+				break switcher
+			default:
+
+			}
+		}
+		}
+	}()
+	return out, nil
 }
